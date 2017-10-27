@@ -1,2 +1,2 @@
-# echo
-Echo server and client 
+# Echo
+Echo server and client, written in C++ using SFML 2.4. 
