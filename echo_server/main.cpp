@@ -4,14 +4,11 @@
 
 void echo(sf::TcpSocket& client)
 {
-    while(client.getRemotePort() != 0)
-    {
         char buffer[1024];
         std::size_t received=0;
         client.receive(buffer,sizeof(buffer),received);
         std::string message(buffer);
         client.send(message.c_str(),message.size()+1);
-    }
 }
 
 int main(int argc,char * argv[])
@@ -23,6 +20,8 @@ int main(int argc,char * argv[])
     }
     int port=atoi(argv[1]);
     sf::TcpListener listener;
+
+
     bool running = false;
     if(listener.listen(port)==sf::Socket::Status::Done)
     {
@@ -30,13 +29,55 @@ int main(int argc,char * argv[])
         std::cout<<"Server running on port "<<listener.getLocalPort()<<'\n';
     }
 
+    std::vector<sf::TcpSocket*> clients;
+
+    sf::SocketSelector selector;
+
+    selector.add(listener);
+
     sf::TcpSocket client;
+
+
     while(running)
     {
-        if(listener.accept(client) == sf::Socket::Done)
+        if(selector.wait())
         {
-            std::cout<<"New connection at: "<<client.getRemoteAddress()<<"\n";
-            echo(client);
+            if(selector.isReady(listener))
+            {
+                sf::TcpSocket* client=new sf::TcpSocket;
+                if(listener.accept(*client)==sf::Socket::Done)
+                {
+                    clients.push_back(client);
+                    selector.add(*client);
+                    std::cout<<"New client at "<<client->getRemoteAddress()<<'\n';
+                }
+                else
+                {
+                    std::cout<<"Client couldn't connect.\n";
+                    delete client;
+                }
+            }
+            else
+            {
+                for(std::vector<sf::TcpSocket*>::iterator it=clients.begin(); it!=clients.end(); it++)
+                {
+                    sf::TcpSocket& client= **it;
+                    if(client.getRemotePort()==0)
+                    {
+                        std::cout<<"Client at "<<client.getRemoteAddress()<<" was disconnected\n";
+                        selector.remove(client);
+                        clients.erase(it);
+                        it--;
+                    }
+                    else
+                    {
+                        if(selector.isReady(client))
+                        {
+                            echo(client);
+                        }
+                    }
+                }
+            }
         }
     }
     return 0;
