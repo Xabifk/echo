@@ -1,0 +1,5 @@
+*.o
+*.cbp
+*.o
+*.layout
+*.depend
