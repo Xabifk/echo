@@ -10,15 +10,27 @@
 class Server
 {
 public:
+    Server()
+    {}
 
-    Server(short unsigned port)
+    void setPort(short unsigned port)
     {
         m_port = port;
+    }
 
+    void startServer()
+    {
         m_listening_thread = std::make_shared<std::thread>(&Server::listen ,this);
     }
 
-    ~Server()
+    Server(short unsigned port)
+    {
+        setPort(port);
+
+        startServer();
+    }
+
+    void stopServer()
     {
         m_running_listener = false;
 
@@ -26,6 +38,11 @@ public:
 
         m_listener.close();
         m_selector.clear();
+    }
+
+    ~Server()
+    {
+        stopServer();
     }
 
 private:
@@ -96,11 +113,11 @@ private:
 
         if(m_listener.listen(m_port) == sf::Socket::Done)
         {
-            std::cout<<"Listening on port "<<m_port<<"!\n";
+            std::cout<<"[Listening on port "<<m_port<<"!]\n";
         }
         else
         {
-            std::cout<<"Could not start server on port "<<m_port<<"\n";
+            std::cout<<"[Could not start server on port "<<m_port<<"]\n";
             exit(1);
         }
 
@@ -148,6 +165,82 @@ private:
 
 };
 
+class Command
+{
+public:
+
+    bool isRunning()
+    {
+        return m_running;
+    }
+
+    void execute(std::string command)
+    {
+        if(m_server == nullptr)
+        {
+            std::cerr<<"[No server linked]\n";
+            return;
+        }
+
+        switch(getStringCode(command))
+        {
+        case eExit:
+            m_running = false;
+            break;
+        case eStop:
+            m_server->stopServer();
+            break;
+        case eStart:
+            m_server->startServer();
+            break;
+        case eRestart:
+            m_server->stopServer();
+            std::cout<<"[Restarting...]\n";
+            m_server->startServer();
+            break;
+        default:
+            std::cout<<"[Command not recognised]\n";
+            break;
+        }
+    }
+
+    void setServer(Server &server)
+    {
+        m_server.reset(&server);
+    }
+
+    Command(Server &server)
+    {
+        setServer(server);
+    }
+
+    Command()
+    {}
+
+    ~Command()
+    {}
+
+private:
+    bool m_running = true;
+
+    std::shared_ptr<Server> m_server = NULL;
+
+    enum m_string_code
+    {
+        eExit,eStart,eStop,eRestart,eUndefined
+    };
+
+    m_string_code getStringCode(std::string command)
+    {
+        if(command == "/exit") return eExit;
+        if(command == "/start") return eStart;
+        if(command == "/stop") return eStop;
+        if(command == "/restart") return eRestart;
+        return eUndefined;
+    }
+
+};
+
 
 int main(int argc,char * argv[])
 {
@@ -158,9 +251,17 @@ int main(int argc,char * argv[])
     }
 
     short unsigned port = atoi(argv[1]);
+
     Server server(port);
-    std::string s;
-    std::cin>>s;
+    Command command(server);
+
+    std::string com;
+
+    while(command.isRunning())
+    {
+        std::cin>>com;
+        command.execute(com);
+    }
 
     return 0;
 }
