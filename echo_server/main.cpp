@@ -10,8 +10,6 @@
 class Server
 {
 public:
-    Server()
-    {}
 
     void setPort(short unsigned port)
     {
@@ -23,13 +21,6 @@ public:
         m_listening_thread = std::make_shared<std::thread>(&Server::listen ,this);
     }
 
-    Server(short unsigned port)
-    {
-        setPort(port);
-
-        startServer();
-    }
-
     void stopServer()
     {
         m_running_listener = false;
@@ -38,6 +29,16 @@ public:
 
         m_listener.close();
         m_selector.clear();
+    }
+
+    Server()
+    {}
+
+    Server(short unsigned port)
+    {
+        setPort(port);
+
+        startServer();
     }
 
     ~Server()
