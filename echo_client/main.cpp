@@ -28,7 +28,10 @@ public:
     void connect()
     {
         if(m_selector_thread != nullptr)
-            disconnect();
+        {
+            std::cout<<"[You are already connected]\n";
+            return;
+        }
 
         if(m_server.connect(m_ipaddress,m_port) == sf::Socket::Done)
         {
@@ -194,12 +197,14 @@ public:
     {}
 
     ~Command()
-    {}
+    {
+        m_server.release();
+    }
 
 private:
     bool m_running = true;
 
-    std::shared_ptr<Server> m_server = nullptr;
+    std::unique_ptr<Server> m_server = nullptr;
 
     enum m_string_code
     {
@@ -234,7 +239,7 @@ int main(int argc,char *argv[])
 
     while(command.isRunning())
     {
-        std::cin>>message;
+        getline(std::cin, message);
 
         if(command.isCommand(message))
             command.execute(message);

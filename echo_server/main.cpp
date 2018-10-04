@@ -18,6 +18,11 @@ public:
 
     void startServer()
     {
+        if(m_listening_thread != nullptr)
+        {
+            std::cout<<"[Server it's already running]\n";
+            return;
+        }
         m_listening_thread = std::make_shared<std::thread>(&Server::listen ,this);
     }
 
@@ -219,12 +224,14 @@ public:
     {}
 
     ~Command()
-    {}
+    {
+        m_server.release();
+    }
 
 private:
     bool m_running = true;
 
-    std::shared_ptr<Server> m_server = NULL;
+    std::unique_ptr<Server> m_server = NULL;
 
     enum m_string_code
     {
