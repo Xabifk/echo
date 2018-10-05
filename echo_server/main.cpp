@@ -28,12 +28,24 @@ public:
 
     void stopServer()
     {
+        if(m_listening_thread == nullptr)
+        {
+            std::cout<<"[Server is already stopped]\n";
+            return;
+        }
+
         m_running_listener = false;
 
         m_listening_thread->join();
+        m_listening_thread = nullptr;
 
         m_listener.close();
         m_selector.clear();
+    }
+
+    unsigned getNrClients()
+    {
+        return m_clients.size();
     }
 
     Server()
@@ -83,11 +95,6 @@ private:
         return connected;
     }
 
-    void printInfo()
-    {
-        std::cout<<'['<<m_clients.size()<<" connected client(s)]\n";
-    }
-
     bool acceptConnection()
     {
         bool connected = true;
@@ -115,7 +122,7 @@ private:
     void listen()
     {
         m_listener.setBlocking(false);
-        sf::Time timeout = sf::seconds(5.0f);
+        sf::Time timeout = sf::seconds(2.0f);
 
         if(m_listener.listen(m_port) == sf::Socket::Done)
         {
@@ -160,10 +167,6 @@ private:
                     }
                 }
             }
-            else
-            {
-                printInfo();
-            }
 
         }
         //end of loop
@@ -204,6 +207,9 @@ public:
             std::cout<<"[Restarting...]\n";
             m_server->startServer();
             break;
+        case eStatus:
+            std::cout<<"["<<m_server->getNrClients()<<" connected client(s)]\n";
+            break;
         default:
             std::cout<<"[Command not recognised]\n";
             break;
@@ -235,7 +241,7 @@ private:
 
     enum m_string_code
     {
-        eExit,eStart,eStop,eRestart,eUndefined
+        eExit, eStart, eStop, eRestart, eStatus, eUndefined
     };
 
     m_string_code getStringCode(std::string command)
@@ -244,6 +250,7 @@ private:
         if(command == "/start") return eStart;
         if(command == "/stop") return eStop;
         if(command == "/restart") return eRestart;
+        if(command == "/status") return eStatus;
         return eUndefined;
     }
 
@@ -263,10 +270,14 @@ int main(int argc,char * argv[])
     Server server(port);
     Command command(server);
 
+    sf::Time time = sf::seconds(0.5f);
+    sf::sleep(time); //race condition
+
     std::string com;
 
     while(command.isRunning())
     {
+        std::cout<<'>';
         std::cin>>com;
         command.execute(com);
     }
