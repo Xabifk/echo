@@ -51,15 +51,26 @@ public:
     void connect(sf::IpAddress ipaddress, short unsigned port)
     {
         setIpPort(ipaddress, port);
+
+        if(m_selector_thread != nullptr)
+            disconnect();
+
         connect();
     }
 
     void disconnect()
     {
+        if(m_selector_thread == nullptr)
+        {
+            std::cout<<"[You are not connected]\n";
+            return;
+        }
+
         std::cout<<"[Disconnecting...]\n";
 
         m_running_listener = false;
         m_selector_thread->join();
+        m_selector_thread = nullptr;
         m_server.disconnect();
     }
 
