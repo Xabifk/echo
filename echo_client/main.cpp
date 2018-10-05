@@ -133,7 +133,7 @@ private:
 
     void listen()
     {
-        sf::Time timeout = sf::seconds(5.0f);
+        sf::Time timeout = sf::seconds(1.0f);
         m_running_listener = true;
         while(m_running_listener)
         {

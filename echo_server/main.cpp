@@ -122,7 +122,7 @@ private:
     void listen()
     {
         m_listener.setBlocking(false);
-        sf::Time timeout = sf::seconds(2.0f);
+        sf::Time timeout = sf::seconds(1.0f);
 
         if(m_listener.listen(m_port) == sf::Socket::Done)
         {
