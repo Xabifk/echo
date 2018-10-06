@@ -9,15 +9,37 @@
 class Server
 {
 public:
-    Server(sf::IpAddress ipaddress, short unsigned port)
+    void setIpAddress(sf::IpAddress ipaddress)
     {
-        if(m_server.connect(ipaddress,port) == sf::Socket::Done)
+        m_ipaddress = ipaddress;
+    }
+
+    void setPort(short unsigned port)
+    {
+        m_port = port;
+    }
+
+    void setIpPort(sf::IpAddress ipaddress, short unsigned port)
+    {
+        setIpAddress(ipaddress);
+        setPort(port);
+    }
+
+    void connect()
+    {
+        if(m_selector_thread != nullptr)
         {
-            std::cout<<"[Connected to server "<<ipaddress<<':'<<port<<"]\n";
+            std::cout<<"[You are already connected]\n";
+            return;
+        }
+
+        if(m_server.connect(m_ipaddress,m_port) == sf::Socket::Done)
+        {
+            std::cout<<"[Connected to server "<<m_ipaddress<<':'<<m_port<<"]\n";
         }
         else
         {
-            std::cout<<"[Couldn't connect to server "<<ipaddress<<':'<<port<<"]\n";
+            std::cout<<"[Couldn't connect to server "<<m_ipaddress<<':'<<m_port<<"]\n";
             exit(1);
         }
 
@@ -26,12 +48,29 @@ public:
         m_selector_thread = std::make_shared<std::thread>(&Server::listen, this);
     }
 
-    ~Server()
+    void connect(sf::IpAddress ipaddress, short unsigned port)
     {
+        setIpPort(ipaddress, port);
+
+        if(m_selector_thread != nullptr)
+            disconnect();
+
+        connect();
+    }
+
+    void disconnect()
+    {
+        if(m_selector_thread == nullptr)
+        {
+            std::cout<<"[You are not connected]\n";
+            return;
+        }
+
         std::cout<<"[Disconnecting...]\n";
 
         m_running_listener = false;
         m_selector_thread->join();
+        m_selector_thread = nullptr;
         m_server.disconnect();
     }
 
@@ -45,6 +84,18 @@ public:
             errorDisconnect();
             exit(1);
         }
+    }
+
+    Server(sf::IpAddress ipaddress, short unsigned port)
+    {
+        setIpPort(ipaddress,port);
+
+        connect();
+    }
+
+    ~Server()
+    {
+        disconnect();
     }
 
 
@@ -82,7 +133,7 @@ private:
 
     void listen()
     {
-        sf::Time timeout = sf::seconds(5.0f);
+        sf::Time timeout = sf::seconds(1.0f);
         m_running_listener = true;
         while(m_running_listener)
         {
@@ -97,7 +148,92 @@ private:
     }
 
 };
-int main(int argc,char * argv[])
+
+class Command
+{
+public:
+    bool isRunning()
+    {
+        return m_running;
+    }
+
+    bool isCommand(std::string command)
+    {
+        if(command[0] == '/')
+            return true;
+        else
+            return false;
+    }
+
+    void execute(std::string command)
+    {
+        if(m_server == nullptr)
+        {
+            std::cerr<<"[No server linked]\n";
+            return;
+        }
+
+        switch(getStringCode(command))
+        {
+        case eExit:
+            m_running = false;
+            break;
+        case eDisconnect:
+            m_server->disconnect();
+            break;
+        case eConnect:
+            m_server->connect();
+            break;
+        case eRestart:
+            m_server->disconnect();
+            m_server->connect();
+            break;
+        default:
+            std::cout<<"[Command not recognised]\n";
+            break;
+        }
+    }
+
+    void setServer(Server &server)
+    {
+        m_server.reset(&server);
+    }
+
+    Command(Server &server)
+    {
+        setServer(server);
+    }
+
+    Command()
+    {}
+
+    ~Command()
+    {
+        m_server.release();
+    }
+
+private:
+    bool m_running = true;
+
+    std::unique_ptr<Server> m_server = nullptr;
+
+    enum m_string_code
+    {
+        eExit, eDisconnect, eConnect, eRestart, eUndefined
+    };
+
+    m_string_code getStringCode(std::string command)
+    {
+        if(command == "/exit") return eExit;
+        if(command == "/disconnect") return eDisconnect;
+        if(command == "/connect") return eConnect;
+        if(command == "/restart") return eRestart;
+        return eUndefined;
+    }
+
+
+};
+int main(int argc,char *argv[])
 {
     if(argc!=3)
     {
@@ -108,21 +244,18 @@ int main(int argc,char * argv[])
     short unsigned port = atoi(argv[2]);
 
     Server server(ipaddress, port);
+    Command command(server);
 
     std::string message;
-    bool running = true;
 
-    while(running)
+    while(command.isRunning())
     {
-        std::cin>>message;
+        getline(std::cin, message);
 
-        if(message == "/exit")
-        {
-            running = false;
-            break;
-        }
-
-        server.send(message);
+        if(command.isCommand(message))
+            command.execute(message);
+        else
+            server.send(message);
     }
 
     return 0;

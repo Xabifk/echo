@@ -11,21 +11,56 @@ class Server
 {
 public:
 
-    Server(short unsigned port)
+    void setPort(short unsigned port)
     {
         m_port = port;
+    }
 
+    void startServer()
+    {
+        if(m_listening_thread != nullptr)
+        {
+            std::cout<<"[Server it's already running]\n";
+            return;
+        }
         m_listening_thread = std::make_shared<std::thread>(&Server::listen ,this);
+    }
+
+    void stopServer()
+    {
+        if(m_listening_thread == nullptr)
+        {
+            std::cout<<"[Server is already stopped]\n";
+            return;
+        }
+
+        m_running_listener = false;
+
+        m_listening_thread->join();
+        m_listening_thread = nullptr;
+
+        m_listener.close();
+        m_selector.clear();
+    }
+
+    unsigned getNrClients()
+    {
+        return m_clients.size();
+    }
+
+    Server()
+    {}
+
+    Server(short unsigned port)
+    {
+        setPort(port);
+
+        startServer();
     }
 
     ~Server()
     {
-        m_running_listener = false;
-
-        m_listening_thread->join();
-
-        m_listener.close();
-        m_selector.clear();
+        stopServer();
     }
 
 private:
@@ -60,11 +95,6 @@ private:
         return connected;
     }
 
-    void printInfo()
-    {
-        std::cout<<'['<<m_clients.size()<<" connected client(s)]\n";
-    }
-
     bool acceptConnection()
     {
         bool connected = true;
@@ -92,15 +122,15 @@ private:
     void listen()
     {
         m_listener.setBlocking(false);
-        sf::Time timeout = sf::seconds(5.0f);
+        sf::Time timeout = sf::seconds(1.0f);
 
         if(m_listener.listen(m_port) == sf::Socket::Done)
         {
-            std::cout<<"Listening on port "<<m_port<<"!\n";
+            std::cout<<"[Listening on port "<<m_port<<"!]\n";
         }
         else
         {
-            std::cout<<"Could not start server on port "<<m_port<<"\n";
+            std::cout<<"[Could not start server on port "<<m_port<<"]\n";
             exit(1);
         }
 
@@ -137,13 +167,91 @@ private:
                     }
                 }
             }
-            else
-            {
-                printInfo();
-            }
 
         }
         //end of loop
+    }
+
+};
+
+class Command
+{
+public:
+
+    bool isRunning()
+    {
+        return m_running;
+    }
+
+    void execute(std::string command)
+    {
+        if(m_server == nullptr)
+        {
+            std::cerr<<"[No server linked]\n";
+            return;
+        }
+
+        switch(getStringCode(command))
+        {
+        case eExit:
+            m_running = false;
+            break;
+        case eStop:
+            m_server->stopServer();
+            break;
+        case eStart:
+            m_server->startServer();
+            break;
+        case eRestart:
+            m_server->stopServer();
+            std::cout<<"[Restarting...]\n";
+            m_server->startServer();
+            break;
+        case eStatus:
+            std::cout<<"["<<m_server->getNrClients()<<" connected client(s)]\n";
+            break;
+        default:
+            std::cout<<"[Command not recognised]\n";
+            break;
+        }
+    }
+
+    void setServer(Server &server)
+    {
+        m_server.reset(&server);
+    }
+
+    Command(Server &server)
+    {
+        setServer(server);
+    }
+
+    Command()
+    {}
+
+    ~Command()
+    {
+        m_server.release();
+    }
+
+private:
+    bool m_running = true;
+
+    std::unique_ptr<Server> m_server = NULL;
+
+    enum m_string_code
+    {
+        eExit, eStart, eStop, eRestart, eStatus, eUndefined
+    };
+
+    m_string_code getStringCode(std::string command)
+    {
+        if(command == "/exit") return eExit;
+        if(command == "/start") return eStart;
+        if(command == "/stop") return eStop;
+        if(command == "/restart") return eRestart;
+        if(command == "/status") return eStatus;
+        return eUndefined;
     }
 
 };
@@ -158,9 +266,21 @@ int main(int argc,char * argv[])
     }
 
     short unsigned port = atoi(argv[1]);
+
     Server server(port);
-    std::string s;
-    std::cin>>s;
+    Command command(server);
+
+    sf::Time time = sf::seconds(0.5f);
+    sf::sleep(time); //race condition
+
+    std::string com;
+
+    while(command.isRunning())
+    {
+        std::cout<<'>';
+        std::cin>>com;
+        command.execute(com);
+    }
 
     return 0;
 }
