@@ -237,7 +237,7 @@ int main(int argc,char *argv[])
 {
     if(argc!=3)
     {
-        std::cout<<"Usage: <address> <port>\n";
+        std::cout<<"Usage: "<<argv[0]<<" <address> <port>\n";
         return 0;
     }
     sf::IpAddress ipaddress(argv[1]);
