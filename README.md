@@ -12,12 +12,12 @@ Or install it from your package manager:\
 
 You'll need `make` and `g++` to build this project, both of them are found in the `build-essential` package.\
 \
-`sudo apt update`\
-`sudo apt upgrade`\
-`sudo apt install build-essential`
+`$ sudo apt update`\
+`$ sudo apt upgrade`\
+`$ sudo apt install build-essential`
 
 Now to actualy build the project just run\
-`make`
+`$ make`
 
 
 
